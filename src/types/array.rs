@@ -234,9 +234,26 @@ impl ZendHashTable {
     /// assert_eq!(ht.get("test").and_then(|zv| zv.str()), Some("hello world"));
     /// ```
     #[must_use]
-    pub fn get_mut(&self, key: &'_ str) -> Option<&mut Zval> {
-        let str = CString::new(key).ok()?;
-        unsafe { zend_hash_str_find(self, str.as_ptr(), key.len() as _).as_mut() }
+    pub fn get_mut<'a, K>(&self, key: K) -> Option<&mut Zval> where K: Into<ArrayKey<'a>>{
+        match key.into() {
+            ArrayKey::Long(index) => {
+                unsafe { zend_hash_index_find(self, index as zend_ulong).as_mut() }
+            }
+            ArrayKey::String(key) => {
+                if let Ok(index) = i64::from_str(key.as_str()) {
+                    unsafe { zend_hash_index_find(self, index as zend_ulong).as_mut() }
+                } else {
+                    unsafe { zend_hash_str_find(self, CString::new(key.as_str()).ok()?.as_ptr(), key.len() as _).as_mut() }
+                }
+            }
+            ArrayKey::Str(key) => {
+                if let Ok(index) = i64::from_str(key) {
+                    unsafe { zend_hash_index_find(self, index as zend_ulong).as_mut() }
+                } else {
+                    unsafe { zend_hash_str_find(self, CString::new(key).ok()?.as_ptr(), key.len() as _).as_mut() }
+                }
+            }
+        }
     }
 
     /// Attempts to retrieve a value from the hash table with an index.
@@ -262,8 +279,8 @@ impl ZendHashTable {
     /// assert_eq!(ht.get_index(0).and_then(|zv| zv.long()), Some(100));
     /// ```
     #[must_use]
-    pub fn get_index(&self, key: u64) -> Option<&Zval> {
-        unsafe { zend_hash_index_find(self, key).as_ref() }
+    pub fn get_index(&self, key: i64) -> Option<&Zval> {
+        unsafe { zend_hash_index_find(self, key as zend_ulong).as_ref() }
     }
 
     /// Attempts to retrieve a value from the hash table with an index.
@@ -289,8 +306,8 @@ impl ZendHashTable {
     /// assert_eq!(ht.get_index(0).and_then(|zv| zv.long()), Some(100));
     /// ```
     #[must_use]
-    pub fn get_index_mut(&self, key: u64) -> Option<&mut Zval> {
-        unsafe { zend_hash_index_find(self, key).as_mut() }
+    pub fn get_index_mut(&self, key: i64) -> Option<&mut Zval> {
+        unsafe { zend_hash_index_find(self, key as zend_ulong).as_mut() }
     }
 
     /// Attempts to remove a value from the hash table with a string key.
@@ -369,8 +386,8 @@ impl ZendHashTable {
     /// ht.remove_index(0);
     /// assert_eq!(ht.len(), 0);
     /// ```
-    pub fn remove_index(&mut self, key: u64) -> Option<()> {
-        let result = unsafe { zend_hash_index_del(self, key) };
+    pub fn remove_index(&mut self, key: i64) -> Option<()> {
+        let result = unsafe { zend_hash_index_del(self, key as zend_ulong) };
 
         if result < 0 {
             None
@@ -465,12 +482,12 @@ impl ZendHashTable {
     /// ht.insert_at_index(0, "C"); // notice overriding index 0
     /// assert_eq!(ht.len(), 2);
     /// ```
-    pub fn insert_at_index<V>(&mut self, key: u64, val: V) -> Result<()>
+    pub fn insert_at_index<V>(&mut self, key: i64, val: V) -> Result<()>
     where
         V: IntoZval,
     {
         let mut val = val.into_zval(false)?;
-        unsafe { zend_hash_index_update(self, key, &raw mut val) };
+        unsafe { zend_hash_index_update(self, key as zend_ulong, &raw mut val) };
         val.release();
         Ok(())
     }
@@ -662,7 +679,7 @@ pub struct Iter<'a> {
 }
 
 /// Represents the key of a PHP array, which can be either a long or a string.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ArrayKey<'a> {
     /// A numerical key.
     Long(i64),
@@ -1118,8 +1135,8 @@ impl FromIterator<Zval> for ZBox<ZendHashTable> {
     }
 }
 
-impl FromIterator<(u64, Zval)> for ZBox<ZendHashTable> {
-    fn from_iter<T: IntoIterator<Item = (u64, Zval)>>(iter: T) -> Self {
+impl FromIterator<(i64, Zval)> for ZBox<ZendHashTable> {
+    fn from_iter<T: IntoIterator<Item = (i64, Zval)>>(iter: T) -> Self {
         let mut ht = ZendHashTable::new();
         for (key, val) in iter {
             // Inserting a zval cannot fail, as `push` only returns `Err` if converting
