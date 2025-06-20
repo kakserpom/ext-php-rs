@@ -427,7 +427,7 @@ impl ZendHashTable {
             }
             ArrayKey::Str(key) => {
                 if let Ok(idx) = i64::from_str(key) {
-                    unsafe { zend_hash_index_update(self, idx as zend_ulong, &mut val) };
+                    unsafe { zend_hash_index_update(self, idx as zend_ulong, &raw mut val) };
                 } else {
                     unsafe { zend_hash_str_update(self, CString::new(key)?.as_ptr(), key.len(), &mut val) };
                 }
@@ -470,7 +470,7 @@ impl ZendHashTable {
         V: IntoZval,
     {
         let mut val = val.into_zval(false)?;
-        unsafe { zend_hash_index_update(self, key, &mut val) };
+        unsafe { zend_hash_index_update(self, key, &raw mut val) };
         val.release();
         Ok(())
     }
@@ -507,7 +507,7 @@ impl ZendHashTable {
         V: IntoZval,
     {
         let mut val = val.into_zval(false)?;
-        unsafe { zend_hash_next_index_insert(self, &mut val) };
+        unsafe { zend_hash_next_index_insert(self, &raw mut val) };
         val.release();
 
         Ok(())
@@ -588,7 +588,7 @@ impl ZendHashTable {
     /// }
     #[inline]
     #[must_use]
-    pub fn values(&self) -> Values {
+    pub fn values(&self) -> Values<'_> {
         Values::new(self)
     }
 
@@ -615,7 +615,7 @@ impl ZendHashTable {
     /// }
     #[inline]
     #[must_use]
-    pub fn iter(&self) -> Iter {
+    pub fn iter(&self) -> Iter<'_> {
         self.into_iter()
     }
 }
