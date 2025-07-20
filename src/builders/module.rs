@@ -75,6 +75,24 @@ impl ModuleBuilder<'_> {
             ..Default::default()
         }
     }
+    /// Overrides module name.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the extension.
+    pub fn set_name(mut self, name: impl Into<String>) -> Self {
+        self.name = name.into();
+        self
+    }
+
+    /// Overrides module version.
+    /// # Arguments
+    ///
+    /// * `version` - The current version of the extension.
+    pub fn set_version(mut self, version: impl Into<String>) -> Self {
+        self.version = version.into();
+        self
+    }
 
     /// Sets the startup function for the extension.
     ///
