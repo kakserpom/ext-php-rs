@@ -24,11 +24,11 @@ impl From<String> for ArrayKey<'_> {
 impl TryFrom<ArrayKey<'_>> for String {
     type Error = Error;
 
-    fn try_from(value: ArrayKey<'_>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: ArrayKey<'_>) -> Result<Self, Self::Error> {
         match value {
             ArrayKey::String(s) => Ok(s),
             ArrayKey::Str(s) => Ok(s.to_string()),
-            ArrayKey::Long(_) => Err(Error::InvalidProperty),
+            ArrayKey::Long(l) => Ok(l.to_string()),
         }
     }
 }
@@ -36,7 +36,7 @@ impl TryFrom<ArrayKey<'_>> for String {
 impl TryFrom<ArrayKey<'_>> for i64 {
     type Error = Error;
 
-    fn try_from(value: ArrayKey<'_>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: ArrayKey<'_>) -> Result<Self, Self::Error> {
         match value {
             ArrayKey::Long(i) => Ok(i),
             ArrayKey::String(s) => s.parse::<i64>().map_err(|_| Error::InvalidProperty),
@@ -117,8 +117,7 @@ mod tests {
 
         let key = ArrayKey::Long(42);
         let result: crate::error::Result<String, _> = key.try_into();
-        assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), Error::InvalidProperty));
+        assert_eq!(result.unwrap(), "42".to_string());
 
         let key = ArrayKey::String("42".to_string());
         let result: crate::error::Result<String, _> = key.try_into();
